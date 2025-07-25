@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GitLab Dashboard - Flask Edition</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+</head>
+<body>
+    <div class="container-fluid">
+        <header class="row bg-primary text-white py-3 mb-4">
+            <div class="col">
+                <h1><i class="fab fa-gitlab"></i> GitLab Dashboard <span class="badge bg-secondary">Flask Edition</span></h1>
+                <p class="mb-0">Powered by Flask backend with secure API endpoints</p>
+            </div>
+        </header>
+
+        <!-- Configuration Section -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header">
+                        <h5><i class="fas fa-cog"></i> Configuration</h5>
+                    </div>
+                    <div class="card-body">
+                        <form id="configForm">
+                            <div class="row">
+                                <div class="col-md-4">
+                                    <label for="gitlabUrl" class="form-label">GitLab URL</label>
+                                    <input type="url" class="form-control" id="gitlabUrl" 
+                                           placeholder="https://gitlab.com" value="https://gitlab.com" required>
+                                </div>
+                                <div class="col-md-4">
+                                    <label for="accessToken" class="form-label">Access Token</label>
+                                    <input type="password" class="form-control" id="accessToken" 
+                                           placeholder="Your GitLab access token" required>
+                                </div>
+                                <div class="col-md-4 d-flex align-items-end">
+                                    <button type="submit" class="btn btn-primary me-2">
+                                        <i class="fas fa-save"></i> Configure & Load
+                                    </button>
+                                    <button type="button" class="btn btn-outline-secondary me-2" onclick="refreshDashboard()">
+                                        <i class="fas fa-sync"></i> Refresh
+                                    </button>
+                                    <button type="button" id="syncButton" class="btn btn-success" onclick="triggerFullSync()" style="display: none;">
+                                        <i class="fas fa-sync-alt" id="syncIcon"></i> Sync Data
+                                    </button>
+                                </div>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Search Section -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header">
+                        <h6><i class="fas fa-search"></i> Search Projects</h6>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-8">
+                                <input type="text" class="form-control" id="searchInput" 
+                                       placeholder="Search for projects..." onkeypress="handleSearchKeypress(event)">
+                            </div>
+                            <div class="col-md-4">
+                                <button class="btn btn-outline-primary" onclick="searchProjects()">
+                                    <i class="fas fa-search"></i> Search
+                                </button>
+                                <button class="btn btn-outline-secondary ms-2" onclick="clearSearch()">
+                                    <i class="fas fa-times"></i> Clear
+                                </button>
+                            </div>
+                        </div>
+                        <div id="searchResults" class="mt-3"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Loading Indicator -->
+        <div id="loadingIndicator" class="row d-none">
+            <div class="col-12 text-center">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Loading...</span>
+                </div>
+                <p class="mt-2">Loading GitLab data via Flask API...</p>
+            </div>
+        </div>
+
+        <!-- Error Alert -->
+        <div id="errorAlert" class="alert alert-danger d-none" role="alert">
+            <i class="fas fa-exclamation-triangle"></i>
+            <span id="errorMessage"></span>
+        </div>
+
+        <!-- Success Alert -->
+        <div id="successAlert" class="alert alert-success d-none" role="alert">
+            <i class="fas fa-check-circle"></i>
+            <span id="successMessage"></span>
+        </div>
+
+        <!-- Dashboard Content -->
+        <div class="row">
+            <!-- Left Sidebar - Tree View -->
+            <div class="col-md-4 col-lg-3">
+                <div class="card h-100">
+                    <div class="card-header">
+                        <h6><i class="fas fa-sitemap"></i> GitLab Structure</h6>
+                    </div>
+                    <div class="card-body p-0">
+                        <div id="treeView" class="tree-view">
+                            <div id="treeViewPlaceholder" class="text-center text-muted p-4">
+                                <i class="fas fa-cog fa-3x mb-3"></i>
+                                <h6>Configuration Required</h6>
+                                <p class="small">Please configure your GitLab connection above to view your groups and projects.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Right Content Area -->
+            <div class="col-md-8 col-lg-9">
+                <div class="card h-100">
+                    <div class="card-header">
+                        <h6 id="contentTitle"><i class="fas fa-info-circle"></i> Welcome to GitLab Dashboard</h6>
+                    </div>
+                    <div class="card-body">
+                        <div id="contentArea">
+                            <div id="welcomeMessage" class="text-center text-muted">
+                                <i class="fab fa-gitlab fa-4x mb-4 text-primary"></i>
+                                <h4>Welcome to GitLab Dashboard</h4>
+                                <p class="lead">Get started by configuring your GitLab connection above.</p>
+                                <div class="row mt-4">
+                                    <div class="col-md-4">
+                                        <div class="card border-primary">
+                                            <div class="card-body text-center">
+                                                <i class="fas fa-cog fa-2x text-primary mb-2"></i>
+                                                <h6>Step 1: Configure</h6>
+                                                <p class="small">Enter your GitLab URL and access token</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <div class="card border-info">
+                                            <div class="card-body text-center">
+                                                <i class="fas fa-sitemap fa-2x text-info mb-2"></i>
+                                                <h6>Step 2: Explore</h6>
+                                                <p class="small">Navigate through groups and subgroups</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <div class="card border-success">
+                                            <div class="card-body text-center">
+                                                <i class="fas fa-project-diagram fa-2x text-success mb-2"></i>
+                                                <h6>Step 3: Manage</h6>
+                                                <p class="small">View and manage your projects</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="alert alert-info mt-4">
+                                    <i class="fas fa-lightbulb"></i>
+                                    <strong>Tip:</strong> You need a GitLab Personal Access Token with 'read_api' scope to use this dashboard.
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Statistics Section -->
+        <div class="row mt-4">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <h5><i class="fas fa-chart-bar"></i> Statistics</h5>
+                            <button class="btn btn-sm btn-outline-primary" onclick="loadStats()">
+                                <i class="fas fa-sync"></i> Refresh Stats
+                            </button>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <div class="row text-center">
+                            <div class="col-md-3">
+                                <div class="stat-card">
+                                    <h3 id="totalGroups" class="text-primary">0</h3>
+                                    <p>Total Groups</p>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="stat-card">
+                                    <h3 id="totalSubgroups" class="text-info">0</h3>
+                                    <p>Total Subgroups</p>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="stat-card">
+                                    <h3 id="totalProjects" class="text-success">0</h3>
+                                    <p>Total Projects</p>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="stat-card">
+                                    <h3 id="lastUpdated" class="text-warning">-</h3>
+                                    <p>Last Updated</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- API Status -->
+        <div class="row mt-4">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header">
+                        <h6><i class="fas fa-server"></i> API Status</h6>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <p><strong>Backend:</strong> <span id="backendStatus" class="badge bg-secondary">Unknown</span></p>
+                                <p><strong>Configuration:</strong> <span id="configStatus" class="badge bg-secondary">Not Set</span></p>
+                            </div>
+                            <div class="col-md-6">
+                                <p><strong>Last Health Check:</strong> <span id="lastHealthCheck">-</span></p>
+                                <button class="btn btn-sm btn-outline-info" onclick="checkHealth()">
+                                    <i class="fas fa-heartbeat"></i> Check Health
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="{{ url_for('static', filename='flask-script.js') }}"></script>
+</body>
+</html>

@@ -1,0 +1,325 @@
+{
+  "info": {
+    "name": "GitLab Dashboard API",
+    "description": "Complete API collection for GitLab Dashboard with database storage",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_postman_id": "gitlab-dashboard-api-v1",
+    "version": {
+      "major": 1,
+      "minor": 1,
+      "patch": 0
+    }
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:5000",
+      "type": "string"
+    },
+    {
+      "key": "gitlab_url",
+      "value": "https://gitlab.com",
+      "type": "string"
+    },
+    {
+      "key": "access_token",
+      "value": "your-gitlab-access-token-here",
+      "type": "string"
+    },
+    {
+      "key": "sample_group_id",
+      "value": "103595591",
+      "type": "string",
+      "description": "shared-repo group ID"
+    },
+    {
+      "key": "sample_project_id",
+      "value": "64529625",
+      "type": "string"
+    },
+    {
+      "key": "sample_pipeline_id",
+      "value": "1000000",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "1. Configuration",
+      "item": [
+        {
+          "name": "Save Configuration",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"gitlab_url\": \"{{gitlab_url}}\",\n  \"access_token\": \"{{access_token}}\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/config",
+              "host": ["{{base_url}}"],
+              "path": ["api", "config"]
+            },
+            "description": "Save GitLab configuration and trigger initial sync"
+          }
+        }
+      ]
+    },
+    {
+      "name": "2. Groups",
+      "item": [
+        {
+          "name": "Get All Groups",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/groups",
+              "host": ["{{base_url}}"],
+              "path": ["api", "groups"]
+            },
+            "description": "Get all groups from database"
+          }
+        },
+        {
+          "name": "Get Group Subgroups",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/groups/{{sample_group_id}}/subgroups",
+              "host": ["{{base_url}}"],
+              "path": ["api", "groups", "{{sample_group_id}}", "subgroups"]
+            },
+            "description": "Get subgroups for a specific group"
+          }
+        },
+        {
+          "name": "Get Group Projects",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/groups/{{sample_group_id}}/projects",
+              "host": ["{{base_url}}"],
+              "path": ["api", "groups", "{{sample_group_id}}", "projects"]
+            },
+            "description": "Get projects for a specific group"
+          }
+        }
+      ]
+    },
+    {
+      "name": "3. Projects",
+      "item": [
+        {
+          "name": "Get Project Details",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/projects/{{sample_project_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "projects", "{{sample_project_id}}"]
+            },
+            "description": "Get detailed information about a specific project"
+          }
+        },
+        {
+          "name": "Get Project Pipelines",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/projects/{{sample_project_id}}/pipelines",
+              "host": ["{{base_url}}"],
+              "path": ["api", "projects", "{{sample_project_id}}", "pipelines"]
+            },
+            "description": "Get pipelines for a specific project"
+          }
+        },
+        {
+          "name": "Get Project Branches",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/projects/{{sample_project_id}}/branches",
+              "host": ["{{base_url}}"],
+              "path": ["api", "projects", "{{sample_project_id}}", "branches"]
+            },
+            "description": "Get branches for a specific project"
+          }
+        },
+        {
+          "name": "Get Pipeline Details",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/projects/{{sample_project_id}}/pipelines/{{sample_pipeline_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "projects", "{{sample_project_id}}", "pipelines", "{{sample_pipeline_id}}"]
+            },
+            "description": "Get detailed information about a specific pipeline"
+          }
+        },
+        {
+          "name": "Get Branch Details",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/projects/{{sample_project_id}}/branches/main",
+              "host": ["{{base_url}}"],
+              "path": ["api", "projects", "{{sample_project_id}}", "branches", "main"]
+            },
+            "description": "Get detailed information about a specific branch"
+          }
+        }
+      ]
+    },
+    {
+      "name": "4. Search",
+      "item": [
+        {
+          "name": "Search Projects",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/search/projects?q=web",
+              "host": ["{{base_url}}"],
+              "path": ["api", "search", "projects"],
+              "query": [
+                {
+                  "key": "q",
+                  "value": "web",
+                  "description": "Search query for project names/descriptions"
+                }
+              ]
+            },
+            "description": "Search projects by name or description"
+          }
+        }
+      ]
+    },
+    {
+      "name": "5. Dashboard & Stats",
+      "item": [
+        {
+          "name": "Get Dashboard Statistics",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/dashboard/stats",
+              "host": ["{{base_url}}"],
+              "path": ["api", "dashboard", "stats"]
+            },
+            "description": "Get overall dashboard statistics (groups, projects, pipelines, branches count)"
+          }
+        },
+        {
+          "name": "Health Check",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/health",
+              "host": ["{{base_url}}"],
+              "path": ["api", "health"]
+            },
+            "description": "Check API health and configuration status"
+          }
+        }
+      ]
+    },
+    {
+      "name": "6. Synchronization",
+      "item": [
+        {
+          "name": "Full Sync",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/sync/full",
+              "host": ["{{base_url}}"],
+              "path": ["api", "sync", "full"]
+            },
+            "description": "Trigger full synchronization of all data from GitLab to database"
+          }
+        },
+        {
+          "name": "Sync Single Project",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/sync/project/{{sample_project_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "sync", "project", "{{sample_project_id}}"]
+            },
+            "description": "Sync pipelines and branches for a specific project"
+          }
+        },
+        {
+          "name": "Get Sync Status",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/sync/status",
+              "host": ["{{base_url}}"],
+              "path": ["api", "sync", "status"]
+            },
+            "description": "Get current synchronization status and last sync times"
+          }
+        }
+      ]
+    },
+    {
+      "name": "7. Frontend",
+      "item": [
+        {
+          "name": "Dashboard Homepage",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/",
+              "host": ["{{base_url}}"],
+              "path": [""]
+            },
+            "description": "Access the main dashboard web interface"
+          }
+        }
+      ]
+    }
+  ]
+}
