@@ -11,7 +11,7 @@ import asyncio
 from database import GitLabDatabase
 from sync_service import GitLabSyncService
 from utils.gitlab_api import GitLabAPI
-from utils.config import ConfigManager
+from utils.enhanced_config import EnhancedConfigManager
 from utils.error_handler import ErrorHandler
 from utils.response_helper import ResponseHelper
 from utils.initialization import InitializationHelper
@@ -27,7 +27,7 @@ app.secret_key = os.environ.get('SECRET_KEY', 'your-secret-key-change-in-product
 # Initialize core components
 db = GitLabDatabase()
 sync_service = GitLabSyncService(db)
-config_manager = ConfigManager(db)
+config_manager = EnhancedConfigManager(db)  # Use enhanced config manager
 initialization_helper = InitializationHelper(db, sync_service)
 
 # Initialize response helper with GitLab API factory

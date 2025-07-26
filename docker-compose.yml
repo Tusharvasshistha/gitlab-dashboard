@@ -1,0 +1,36 @@
+# GitLab Dashboard - Docker Setup
+version: '3.8'
+
+services:
+  gitlab-dashboard:
+    build: .
+    ports:
+      - "5000:5000"
+    environment:
+      # GitLab Configuration
+      - GITLAB_URL=https://gitlab.com
+      - GITLAB_ACCESS_TOKEN=${GITLAB_ACCESS_TOKEN}
+      
+      # Application Configuration
+      - SECRET_KEY=${SECRET_KEY:-your-secret-key-change-in-production}
+      - FLASK_HOST=0.0.0.0
+      - FLASK_PORT=5000
+      - FLASK_DEBUG=false
+      
+      # Database Configuration
+      - DATABASE_URL=/app/data/gitlab_dashboard.db
+      
+    volumes:
+      - ./data:/app/data
+      - ./config:/app/config
+    restart: unless-stopped
+    
+  # Alternative: Using config file
+  gitlab-dashboard-with-config:
+    build: .
+    ports:
+      - "5001:5000"
+    volumes:
+      - ./data:/app/data
+      - ./config.json:/app/config.json:ro
+    restart: unless-stopped

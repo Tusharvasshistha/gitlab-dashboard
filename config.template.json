@@ -1,0 +1,23 @@
+{
+  "gitlab": {
+    "url": "https://gitlab.com",
+    "access_token": "your-gitlab-access-token-here"
+  },
+  "app": {
+    "secret_key": "your-secret-key-for-sessions",
+    "debug": false,
+    "host": "0.0.0.0",
+    "port": 5000
+  },
+  "database": {
+    "url": "gitlab_dashboard.db"
+  },
+  "sync": {
+    "auto_sync_enabled": false,
+    "sync_interval_minutes": 30
+  },
+  "ui": {
+    "show_config_section": false,
+    "default_view": "dashboard"
+  }
+}
