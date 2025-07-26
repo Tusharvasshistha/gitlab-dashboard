@@ -1,0 +1,126 @@
+stages:
+  - build
+  - test
+  - deploy
+
+variables:
+  NODE_VERSION: "18.14.0"
+  PYTHON_VERSION: "3.9"
+  
+# Cache for faster builds
+cache:
+  paths:
+    - react-dashboard-frontend/node_modules/
+    - flask-api-backend/venv/
+
+# Flask API Backend Jobs
+build_backend:
+  stage: build
+  image: python:$PYTHON_VERSION
+  script:
+    - cd flask-api-backend
+    - python -m venv venv
+    - source venv/bin/activate
+    - pip install --upgrade pip
+    - pip install -r requirements.txt
+  artifacts:
+    paths:
+      - flask-api-backend/venv/
+    expire_in: 1 hour
+  only:
+    changes:
+      - flask-api-backend/**/*
+
+test_backend:
+  stage: test
+  image: python:$PYTHON_VERSION
+  dependencies:
+    - build_backend
+  script:
+    - cd flask-api-backend
+    - source venv/bin/activate
+    - python -m pytest --version || pip install pytest
+    - echo "Backend tests would run here"
+    - python -c "import flask; print('Flask import successful')"
+  only:
+    changes:
+      - flask-api-backend/**/*
+
+# React Frontend Jobs
+build_frontend:
+  stage: build
+  image: node:$NODE_VERSION
+  script:
+    - cd react-dashboard-frontend
+    - npm ci --legacy-peer-deps
+    - npm run build
+  artifacts:
+    paths:
+      - react-dashboard-frontend/build/
+    expire_in: 1 hour
+  only:
+    changes:
+      - react-dashboard-frontend/**/*
+
+test_frontend:
+  stage: test
+  image: node:$NODE_VERSION
+  dependencies:
+    - build_frontend
+  script:
+    - cd react-dashboard-frontend
+    - npm ci --legacy-peer-deps
+    - npm run test -- --coverage --ci --watchAll=false
+  coverage: '/All files[^|]*\|[^|]*\s+([\d\.]+)/'
+  artifacts:
+    reports:
+      coverage_report:
+        coverage_format: cobertura
+        path: react-dashboard-frontend/coverage/cobertura-coverage.xml
+  only:
+    changes:
+      - react-dashboard-frontend/**/*
+
+# Deployment Jobs
+deploy_staging:
+  stage: deploy
+  image: alpine:latest
+  script:
+    - echo "Deploying to staging environment"
+    - echo "Backend API: flask-api-backend/"
+    - echo "Frontend: react-dashboard-frontend/build/"
+  environment:
+    name: staging
+    url: https://staging.your-domain.com
+  only:
+    - develop
+  when: manual
+
+deploy_production:
+  stage: deploy
+  image: alpine:latest
+  script:
+    - echo "Deploying to production environment"
+    - echo "Backend API: flask-api-backend/"
+    - echo "Frontend: react-dashboard-frontend/build/"
+  environment:
+    name: production
+    url: https://your-domain.com
+  only:
+    - main
+  when: manual
+
+# Docker Build (Optional)
+build_docker:
+  stage: build
+  image: docker:latest
+  services:
+    - docker:dind
+  script:
+    - echo "Building Docker containers"
+    - echo "Backend: flask-api-backend/Dockerfile"
+    - echo "Frontend: react-dashboard-frontend/Dockerfile"
+  only:
+    - main
+    - develop
+  when: manual

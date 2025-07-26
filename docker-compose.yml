@@ -1,36 +1,57 @@
-# GitLab Dashboard - Docker Setup
+# GitLab Dashboard Full-Stack - Docker Setup
 version: '3.8'
 
 services:
-  gitlab-dashboard:
-    build: .
+  # Flask API Backend
+  flask-api-backend:
+    build: 
+      context: ./flask-api-backend
+      dockerfile: Dockerfile
+    container_name: gitlab-dashboard-api
     ports:
       - "5000:5000"
     environment:
-      # GitLab Configuration
-      - GITLAB_URL=https://gitlab.com
-      - GITLAB_ACCESS_TOKEN=${GITLAB_ACCESS_TOKEN}
-      
-      # Application Configuration
-      - SECRET_KEY=${SECRET_KEY:-your-secret-key-change-in-production}
-      - FLASK_HOST=0.0.0.0
-      - FLASK_PORT=5000
-      - FLASK_DEBUG=false
-      
-      # Database Configuration
-      - DATABASE_URL=/app/data/gitlab_dashboard.db
-      
+      - FLASK_ENV=production
+      - GITLAB_URL=${GITLAB_URL:-https://gitlab.com}
+      - GITLAB_TOKEN=${GITLAB_TOKEN}
+      - SECRET_KEY=${SECRET_KEY:-your-secret-key}
     volumes:
-      - ./data:/app/data
-      - ./config:/app/config
+      - ./flask-api-backend/.env:/app/.env:ro
+    networks:
+      - gitlab-dashboard-network
     restart: unless-stopped
-    
-  # Alternative: Using config file
-  gitlab-dashboard-with-config:
-    build: .
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # React Frontend
+  react-dashboard-frontend:
+    build:
+      context: ./react-dashboard-frontend
+      dockerfile: Dockerfile
+    container_name: gitlab-dashboard-frontend
     ports:
-      - "5001:5000"
-    volumes:
-      - ./data:/app/data
-      - ./config.json:/app/config.json:ro
+      - "80:80"
+    depends_on:
+      flask-api-backend:
+        condition: service_healthy
+    networks:
+      - gitlab-dashboard-network
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+networks:
+  gitlab-dashboard-network:
+    driver: bridge
+
+volumes:
+  gitlab-data:
+    driver: local
