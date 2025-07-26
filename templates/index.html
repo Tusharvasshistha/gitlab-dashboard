@@ -17,14 +17,31 @@
             </div>
         </header>
 
-        <!-- Configuration Section -->
-        <div class="row mb-4">
+        <!-- Configuration Section (Hidden by default, shown only if no config found) -->
+        <div id="configSection" class="row mb-4" style="display: none;">
             <div class="col-12">
-                <div class="card">
-                    <div class="card-header">
-                        <h5><i class="fas fa-cog"></i> Configuration</h5>
+                <div class="card border-warning">
+                    <div class="card-header bg-warning text-dark">
+                        <h5><i class="fas fa-exclamation-triangle"></i> Manual Configuration</h5>
+                        <small>For quick testing or single-user setup. For production/multi-user deployment, use automated setup methods below.</small>
                     </div>
                     <div class="card-body">
+                        <div class="alert alert-info mb-3">
+                            <i class="fas fa-users"></i>
+                            <strong>Recommended for Multiple Users:</strong>
+                            <div class="row mt-2">
+                                <div class="col-md-6">
+                                    <h6><i class="fas fa-terminal"></i> Interactive Setup</h6>
+                                    <code>./setup.sh</code>
+                                    <p class="small text-muted">Guided configuration with validation</p>
+                                </div>
+                                <div class="col-md-6">
+                                    <h6><i class="fas fa-server"></i> Environment Variables</h6>
+                                    <code>GITLAB_URL</code> and <code>GITLAB_ACCESS_TOKEN</code>
+                                    <p class="small text-muted">Perfect for Docker/containers</p>
+                                </div>
+                            </div>
+                        </div>
                         <form id="configForm">
                             <div class="row">
                                 <div class="col-md-4">
@@ -44,12 +61,29 @@
                                     <button type="button" class="btn btn-outline-secondary me-2" onclick="refreshDashboard()">
                                         <i class="fas fa-sync"></i> Refresh
                                     </button>
-                                    <button type="button" id="syncButton" class="btn btn-success" onclick="triggerFullSync()" style="display: none;">
-                                        <i class="fas fa-sync-alt" id="syncIcon"></i> Sync Data
-                                    </button>
                                 </div>
                             </div>
                         </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Configuration Status Banner (Shown when configured) -->
+        <div id="configStatusBanner" class="row mb-4" style="display: none;">
+            <div class="col-12">
+                <div class="alert alert-success d-flex justify-content-between align-items-center">
+                    <div>
+                        <i class="fas fa-check-circle"></i>
+                        <strong>GitLab Connected</strong> - Configuration loaded from <span id="configSource">unknown</span>
+                    </div>
+                    <div>
+                        <button type="button" id="syncButton" class="btn btn-success btn-sm me-2" onclick="triggerFullSync()">
+                            <i class="fas fa-sync-alt" id="syncIcon"></i> Sync Data
+                        </button>
+                        <button type="button" class="btn btn-outline-secondary btn-sm" onclick="showConfigSection()">
+                            <i class="fas fa-cog"></i> Reconfigure
+                        </button>
                     </div>
                 </div>
             </div>
@@ -116,9 +150,9 @@
                     <div class="card-body p-0">
                         <div id="treeView" class="tree-view">
                             <div id="treeViewPlaceholder" class="text-center text-muted p-4">
-                                <i class="fas fa-cog fa-3x mb-3"></i>
-                                <h6>Configuration Required</h6>
-                                <p class="small">Please configure your GitLab connection above to view your groups and projects.</p>
+                                <i class="fas fa-sync fa-3x mb-3 fa-spin"></i>
+                                <h6>Loading Configuration...</h6>
+                                <p class="small">Checking for GitLab configuration from multiple sources...</p>
                             </div>
                         </div>
                     </div>
@@ -135,15 +169,24 @@
                         <div id="contentArea">
                             <div id="welcomeMessage" class="text-center text-muted">
                                 <i class="fab fa-gitlab fa-4x mb-4 text-primary"></i>
-                                <h4>Welcome to GitLab Dashboard</h4>
-                                <p class="lead">Get started by configuring your GitLab connection above.</p>
+                                <h4>GitLab Dashboard</h4>
+                                <p class="lead">Automatically loads and displays your GitLab data</p>
                                 <div class="row mt-4">
                                     <div class="col-md-4">
                                         <div class="card border-primary">
                                             <div class="card-body text-center">
-                                                <i class="fas fa-cog fa-2x text-primary mb-2"></i>
-                                                <h6>Step 1: Configure</h6>
-                                                <p class="small">Enter your GitLab URL and access token</p>
+                                                <i class="fas fa-database fa-2x text-primary mb-2"></i>
+                                                <h6>Auto-Load Data</h6>
+                                                <p class="small">Automatically displays your GitLab data when available</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <div class="card border-success">
+                                            <div class="card-body text-center">
+                                                <i class="fas fa-cloud-download-alt fa-2x text-success mb-2"></i>
+                                                <h6>Get Latest Data</h6>
+                                                <p class="small">Fetch fresh data from GitLab API when needed</p>
                                             </div>
                                         </div>
                                     </div>
@@ -151,24 +194,15 @@
                                         <div class="card border-info">
                                             <div class="card-body text-center">
                                                 <i class="fas fa-sitemap fa-2x text-info mb-2"></i>
-                                                <h6>Step 2: Explore</h6>
-                                                <p class="small">Navigate through groups and subgroups</p>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <div class="col-md-4">
-                                        <div class="card border-success">
-                                            <div class="card-body text-center">
-                                                <i class="fas fa-project-diagram fa-2x text-success mb-2"></i>
-                                                <h6>Step 3: Manage</h6>
-                                                <p class="small">View and manage your projects</p>
+                                                <h6>Explore Structure</h6>
+                                                <p class="small">Navigate through groups, projects, and details</p>
                                             </div>
                                         </div>
                                     </div>
                                 </div>
                                 <div class="alert alert-info mt-4">
-                                    <i class="fas fa-lightbulb"></i>
-                                    <strong>Tip:</strong> You need a GitLab Personal Access Token with 'read_api' scope to use this dashboard.
+                                    <i class="fas fa-info-circle"></i>
+                                    <strong>Ready to Use:</strong> The dashboard automatically loads existing data or guides you through setup if needed.
                                 </div>
                             </div>
                         </div>
@@ -249,5 +283,14 @@
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
     <script src="{{ url_for('static', filename='flask-script.js') }}"></script>
+    <script>
+        // Initialize the GitLab Dashboard when the page loads
+        let dashboard; // Global dashboard instance
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('Initializing GitLab Dashboard...');
+            dashboard = new GitLabDashboardFlask();
+            dashboard.init();
+        });
+    </script>
 </body>
 </html>

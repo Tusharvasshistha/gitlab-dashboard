@@ -180,11 +180,16 @@ def health_check():
     # Validate dependencies
     validation_result = initialization_helper.validate_dependencies()
     
+    # Get configuration status
+    config_status = config_manager.get_config_status()
+    
     return ErrorHandler.create_success_response({
         'status': 'healthy' if validation_result['valid'] else 'degraded',
         'configured': config is not None,
+        'source': config.get('source') if config else None,
         'database_config': db.get_config() is not None,
         'session_config': session_configured,
+        'config_sources': config_status,
         'dependencies': validation_result
     })
 

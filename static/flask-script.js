@@ -9,31 +9,252 @@ class GitLabDashboardFlask {
             totalProjects: 0
         };
         this.isConfigured = false;
+        this.dashboardLoaded = false;  // Track if dashboard data has been loaded
     }
 
     // Initialize the dashboard
     init() {
         this.bindEvents();
-        this.checkHealth();
-        this.showWelcomeState();
+        this.checkConfigurationAndLoad();
+        // Note: Health check is called after configuration check to avoid duplicate loading
+    }
+
+    // Check for existing configuration and auto-load if available
+    async checkConfigurationAndLoad() {
+        try {
+            // Always try to load existing data from database first
+            console.log('Auto-loading existing data from database...');
+            await this.autoLoadExistingData();
+        } catch (error) {
+            console.warn('Failed to auto-load data:', error);
+            this.showEmptyState();
+        }
+    }
+
+    // Auto-load existing data from database without any configuration checks
+    async autoLoadExistingData() {
+        try {
+            console.log('Checking for existing data in database...');
+            
+            // Check if we have data in database
+            const response = await fetch(`${this.baseApiUrl}/dashboard/stats`);
+            const statsResponse = await response.json();
+            console.log('Stats response:', statsResponse);
+            
+            if (statsResponse && statsResponse.success && (statsResponse.total_groups > 0 || statsResponse.total_projects > 0)) {
+                // We have data! Load it automatically
+                console.log('Found existing data in database, loading...');
+                console.log(`Data found: ${statsResponse.total_groups} groups, ${statsResponse.total_projects} projects`);
+                
+                // Show that we're loading existing data
+                this.showDataLoadedState();
+                
+                // Set as configured so other methods work
+                this.isConfigured = true;
+                
+                // Update tree view to show loading
+                const treeView = document.getElementById('treeView');
+                if (treeView) {
+                    treeView.innerHTML = `
+                        <div class="text-center text-muted p-4">
+                            <div class="spinner-border text-success mb-3" role="status">
+                                <span class="visually-hidden">Loading...</span>
+                            </div>
+                            <h6>Loading Data...</h6>
+                            <p class="small">Loading cached GitLab data from database</p>
+                        </div>
+                    `;
+                }
+                
+                // Load groups and build tree from database (cached data)
+                await this.loadDashboardFromCache();
+                
+            } else {
+                // No data in database
+                console.log('No data found in database');
+                this.showEmptyState();
+            }
+            
+        } catch (error) {
+            console.error('Failed to load existing data:', error);
+            this.showEmptyState();
+        }
+    }
+
+    // Show state when data is loaded from database
+    showDataLoadedState() {
+        console.log('showDataLoadedState() called');
+        
+        // Hide welcome message
+        const welcomeMessage = document.getElementById('welcomeMessage');
+        if (welcomeMessage) {
+            console.log('Hiding welcome message');
+            welcomeMessage.style.display = 'none';
+        } else {
+            console.log('Welcome message element not found');
+        }
+        
+        // Hide config section
+        const configSection = document.getElementById('configSection');
+        if (configSection) {
+            console.log('Hiding config section');
+            configSection.style.display = 'none';
+        } else {
+            console.log('Config section element not found');
+        }
+        
+        // Show status banner with refresh option
+        const statusBanner = document.getElementById('configStatusBanner');
+        if (statusBanner) {
+            console.log('Showing status banner');
+            statusBanner.innerHTML = `
+                <div class="alert alert-success d-flex justify-content-between align-items-center">
+                    <div>
+                        <i class="fas fa-database"></i>
+                        <strong>Data Loaded</strong> - Displaying cached GitLab data from database
+                    </div>
+                    <div>
+                        <button type="button" class="btn btn-primary btn-sm" onclick="getLatestDataFromAPI()">
+                            <i class="fas fa-cloud-download-alt"></i> Get Latest Data from API
+                        </button>
+                    </div>
+                </div>
+            `;
+            statusBanner.style.display = 'block';
+        } else {
+            console.log('Status banner element not found');
+        }
+    }
+
+    // Show empty state when no data is available
+    showEmptyState() {
+        // Hide config section initially
+        const configSection = document.getElementById('configSection');
+        if (configSection) configSection.style.display = 'none';
+        
+        // Show empty state banner
+        const statusBanner = document.getElementById('configStatusBanner');
+        if (statusBanner) {
+            statusBanner.innerHTML = `
+                <div class="alert alert-info d-flex justify-content-between align-items-center">
+                    <div>
+                        <i class="fas fa-info-circle"></i>
+                        <strong>No Data Available</strong> - Configure GitLab connection to load data
+                    </div>
+                    <div>
+                        <button type="button" class="btn btn-primary btn-sm me-2" onclick="showManualConfig()">
+                            <i class="fas fa-cog"></i> Configure GitLab
+                        </button>
+                        <button type="button" class="btn btn-outline-info btn-sm" onclick="copySetupCommand()">
+                            <i class="fas fa-terminal"></i> Setup Command
+                        </button>
+                    </div>
+                </div>
+            `;
+            statusBanner.style.display = 'block';
+        }
+        
+        // Update tree view
+        const treeView = document.getElementById('treeView');
+        if (treeView) {
+            treeView.innerHTML = `
+                <div id="treeViewPlaceholder" class="text-center text-muted p-4">
+                    <i class="fas fa-database fa-3x mb-3 text-muted"></i>
+                    <h6>No Data Available</h6>
+                    <p class="small">Configure GitLab connection to load your groups and projects</p>
+                    <button class="btn btn-primary btn-sm mt-2" onclick="showManualConfig()">
+                        <i class="fas fa-cog"></i> Configure Now
+                    </button>
+                </div>
+            `;
+        }
+        
+        this.isConfigured = false;
+    }
+
+    // Show configured state with status banner
+    showConfiguredState(healthData) {
+        // Hide config section
+        const configSection = document.getElementById('configSection');
+        if (configSection) configSection.style.display = 'none';
+        
+        // Show status banner
+        const statusBanner = document.getElementById('configStatusBanner');
+        if (statusBanner) {
+            statusBanner.style.display = 'block';
+            
+            // Update config source if available
+            const configSource = document.getElementById('configSource');
+            if (configSource && healthData.source) {
+                configSource.textContent = healthData.source;
+            }
+        }
+        
+        this.isConfigured = true;
+    }
+
+    // Show configuration required state
+    showConfigurationRequired() {
+        // Show config section
+        const configSection = document.getElementById('configSection');
+        if (configSection) configSection.style.display = 'block';
+        
+        // Hide status banner
+        const statusBanner = document.getElementById('configStatusBanner');
+        if (statusBanner) statusBanner.style.display = 'none';
+        
+        // Update tree view placeholder
+        const treeView = document.getElementById('treeView');
+        if (treeView) {
+            treeView.innerHTML = `
+                <div id="treeViewPlaceholder" class="text-center text-muted p-4">
+                    <i class="fas fa-cog fa-3x mb-3 text-warning"></i>
+                    <h6>Configuration Required</h6>
+                    <p class="small">No GitLab configuration found. Please set up using one of the methods above.</p>
+                </div>
+            `;
+        }
+        
+        this.isConfigured = false;
+    }
+
+    // Auto-load dashboard data when configuration is available
+    async autoLoadDashboard() {
+        try {
+            this.showLoading();
+            
+            // Update tree view to show loading
+            const treeView = document.getElementById('treeView');
+            if (treeView) {
+                treeView.innerHTML = `
+                    <div class="text-center text-muted p-4">
+                        <div class="spinner-border text-primary mb-3" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                        <h6>Loading GitLab Data...</h6>
+                        <p class="small">Fetching your groups and projects...</p>
+                    </div>
+                `;
+            }
+            
+            // Load groups and build tree
+            await this.loadGroupsAndBuildTree();
+            
+            // Load statistics
+            await this.loadStats();
+            
+            this.hideLoading();
+            this.showSuccess('Dashboard loaded successfully from existing configuration!');
+            
+        } catch (error) {
+            this.hideLoading();
+            this.showError(`Failed to load dashboard: ${error.message}`);
+        }
     }
 
     // Show welcome state
     showWelcomeState() {
-        const treeView = document.getElementById('treeView');
-        const contentArea = document.getElementById('contentArea');
-        const contentTitle = document.getElementById('contentTitle');
-        
-        // Show placeholder in tree view
-        treeView.innerHTML = `
-            <div id="treeViewPlaceholder" class="text-center text-muted p-4">
-                <i class="fas fa-cog fa-3x mb-3"></i>
-                <h6>Configuration Required</h6>
-                <p class="small">Please configure your GitLab connection above to view your groups and projects.</p>
-            </div>
-        `;
-        
-        // Reset statistics
+        // This is now handled by checkConfigurationAndLoad
         this.resetStatsDisplay();
     }
 
@@ -88,7 +309,7 @@ class GitLabDashboardFlask {
 
             const result = await response.json();
 
-            if (response.ok) {
+            if (response.ok && result.success) {
                 this.showSuccess('Configuration saved successfully! Loading dashboard...');
                 this.isConfigured = true;
                 
@@ -125,9 +346,10 @@ class GitLabDashboardFlask {
             const response = await fetch(`${this.baseApiUrl}/groups`);
             const result = await response.json();
 
-            if (response.ok) {
+            if (response.ok && result.success) {
                 await this.renderTreeView(result.groups);
                 this.loadStats();
+                this.dashboardLoaded = true;  // Mark as loaded
             } else {
                 this.showError(result.error || 'Failed to load groups');
             }
@@ -135,6 +357,35 @@ class GitLabDashboardFlask {
             this.showError(`Failed to load dashboard: ${error.message}`);
         } finally {
             this.hideLoading();
+        }
+    }
+
+    // Load dashboard from cached database data (fast loading)
+    async loadDashboardFromCache() {
+        console.log('Loading dashboard from cached data...');
+        
+        try {
+            // First load and display the tree structure quickly from database
+            const response = await fetch(`${this.baseApiUrl}/groups`);
+            const result = await response.json();
+
+            if (response.ok && result.success) {
+                console.log(`Loading ${result.groups.length} groups from cache...`);
+                await this.renderTreeViewFromCache(result.groups);
+                this.loadStats();
+                this.dashboardLoaded = true;  // Mark as loaded
+                
+                // Now check health to update status indicators without triggering duplicate loading
+                this.updateHealthStatus();
+            } else {
+                console.warn('Failed to load from cache, falling back to API');
+                // Fallback to normal loading if cache fails
+                await this.loadDashboard();
+            }
+        } catch (error) {
+            console.error('Cache loading failed:', error);
+            // Fallback to normal loading
+            await this.loadDashboard();
         }
     }
 
@@ -181,6 +432,53 @@ class GitLabDashboardFlask {
         }
     }
 
+    // Render tree view from cache (without individual API calls)
+    async renderTreeViewFromCache(groups) {
+        const treeContainer = document.getElementById('treeView');
+        
+        // Remove placeholder
+        const placeholder = document.getElementById('treeViewPlaceholder');
+        if (placeholder) {
+            placeholder.remove();
+        }
+        
+        treeContainer.innerHTML = '';
+
+        if (!groups || groups.length === 0) {
+            treeContainer.innerHTML = `
+                <div class="text-center text-muted p-4">
+                    <i class="fas fa-exclamation-triangle fa-2x mb-3"></i>
+                    <h6>No Groups Found</h6>
+                    <p class="small">No groups found or you don't have access to any groups.</p>
+                </div>
+            `;
+            return;
+        }
+
+        // Update content area to show instruction
+        document.getElementById('contentTitle').innerHTML = '<i class="fas fa-database"></i> Cached Data Loaded';
+        document.getElementById('contentArea').innerHTML = `
+            <div class="text-center text-muted">
+                <i class="fas fa-rocket fa-3x mb-3 text-success"></i>
+                <h5>Cached Data Loaded Successfully!</h5>
+                <p>Displaying cached GitLab data from database for fast loading</p>
+                <div class="alert alert-success">
+                    <i class="fas fa-check-circle"></i>
+                    Found ${groups.length} group(s) - Click to expand and view details
+                </div>
+                <div class="alert alert-info">
+                    <i class="fas fa-info-circle"></i>
+                    Subgroups and projects will load when you expand each group
+                </div>
+            </div>
+        `;
+
+        for (const group of groups) {
+            const groupElement = this.createTreeGroupElementFromCache(group);
+            treeContainer.appendChild(groupElement);
+        }
+    }
+
     // Create tree group element
     async createTreeGroupElement(group) {
         const groupDiv = document.createElement('div');
@@ -193,10 +491,13 @@ class GitLabDashboardFlask {
                 fetch(`${this.baseApiUrl}/groups/${group.id}/projects`)
             ]);
 
-            const subgroups = subgroupsResult.ok ? (await subgroupsResult.json()).subgroups : [];
-            const projects = projectsResult.ok ? (await projectsResult.json()).projects : [];
+            const subgroupsResponse = await subgroupsResult.json();
+            const projectsResponse = await projectsResult.json();
+            
+            const subgroups = (subgroupsResult.ok && subgroupsResponse.success && subgroupsResponse.subgroups) ? subgroupsResponse.subgroups : [];
+            const projects = (projectsResult.ok && projectsResponse.success && projectsResponse.projects) ? projectsResponse.projects : [];
 
-            const hasChildren = subgroups.length > 0 || projects.length > 0;
+            const hasChildren = (subgroups && subgroups.length > 0) || (projects && projects.length > 0);
 
             groupDiv.innerHTML = `
                 <div class="tree-item tree-group" onclick="dashboard.toggleTreeItem('group-${group.id}', this)" data-type="group" data-id="${group.id}">
@@ -221,6 +522,29 @@ class GitLabDashboardFlask {
             `;
             return groupDiv;
         }
+    }
+
+    // Create tree group element from cache (no upfront API calls)
+    createTreeGroupElementFromCache(group) {
+        const groupDiv = document.createElement('div');
+        groupDiv.className = 'tree-group-container';
+
+        // Create group element with lazy loading
+        groupDiv.innerHTML = `
+            <div class="tree-item tree-group" onclick="dashboard.toggleTreeItem('group-${group.id}', this)" data-type="group" data-id="${group.id}">
+                <span class="tree-toggle">▶</span>
+                <i class="fas fa-layer-group tree-icon"></i>
+                <span onclick="dashboard.showGroupDetails(${group.id}, event)">${this.escapeHtml(group.name)}</span>
+            </div>
+            <div class="tree-children" id="group-${group.id}">
+                <div class="loading-tree">
+                    <div class="spinner-border spinner-border-sm"></div>
+                    <small class="d-block mt-1">Loading subgroups and projects...</small>
+                </div>
+            </div>
+        `;
+
+        return groupDiv;
     }
 
     // Render tree subgroups
@@ -290,10 +614,45 @@ class GitLabDashboardFlask {
             toggle.textContent = '▼';
             toggle.classList.add('expanded');
             
-            // Load subgroup projects if needed
-            if (element.dataset.type === 'subgroup') {
+            // Load data if needed (lazy loading)
+            if (element.dataset.type === 'group' && !children.dataset.loaded) {
+                this.loadGroupDataForTree(element.dataset.id);
+            } else if (element.dataset.type === 'subgroup') {
                 this.loadSubgroupProjectsForTree(element.dataset.id);
             }
+        }
+    }
+
+    // Load subgroups and projects for a group in tree view (lazy loading)
+    async loadGroupDataForTree(groupId) {
+        const contentElement = document.getElementById(`group-${groupId}`);
+        if (!contentElement || contentElement.dataset.loaded === 'true') return;
+
+        try {
+            // Load subgroups and projects in parallel
+            const [subgroupsResponse, projectsResponse] = await Promise.all([
+                fetch(`${this.baseApiUrl}/groups/${groupId}/subgroups`),
+                fetch(`${this.baseApiUrl}/groups/${groupId}/projects`)
+            ]);
+
+            const subgroupsResult = await subgroupsResponse.json();
+            const projectsResult = await projectsResponse.json();
+            
+            const subgroups = (subgroupsResponse.ok && subgroupsResult.success && subgroupsResult.subgroups) ? subgroupsResult.subgroups : [];
+            const projects = (projectsResponse.ok && projectsResult.success && projectsResult.projects) ? projectsResult.projects : [];
+
+            // Render the content
+            contentElement.innerHTML = `
+                ${this.renderTreeSubgroups(subgroups)}
+                ${this.renderTreeProjects(projects)}
+            `;
+            contentElement.dataset.loaded = 'true';
+            
+            console.log(`Loaded ${subgroups.length} subgroups and ${projects.length} projects for group ${groupId}`);
+            
+        } catch (error) {
+            console.error(`Error loading data for group ${groupId}:`, error);
+            contentElement.innerHTML = `<div class="text-warning small p-2">Error loading data</div>`;
         }
     }
 
@@ -306,11 +665,11 @@ class GitLabDashboardFlask {
             const response = await fetch(`${this.baseApiUrl}/groups/${subgroupId}/projects`);
             const result = await response.json();
 
-            if (response.ok) {
+            if (response.ok && result.success) {
                 contentElement.innerHTML = this.renderTreeProjects(result.projects);
                 contentElement.dataset.loaded = 'true';
             } else {
-                contentElement.innerHTML = `<div class="text-warning small p-2">Error: ${result.error}</div>`;
+                contentElement.innerHTML = `<div class="text-warning small p-2">Error: ${result.error || 'Failed to load projects'}</div>`;
             }
         } catch (error) {
             contentElement.innerHTML = `<div class="text-warning small p-2">Error loading projects</div>`;
@@ -404,7 +763,7 @@ class GitLabDashboardFlask {
             const response = await fetch(`${this.baseApiUrl}/groups/${subgroupId}/projects`);
             const result = await response.json();
 
-            if (response.ok) {
+            if (response.ok && result.success) {
                 // Find subgroup info from tree
                 const subgroupElement = document.querySelector(`[data-type="subgroup"][data-id="${subgroupId}"]`);
                 const subgroupName = subgroupElement ? subgroupElement.textContent.trim() : 'Subgroup';
@@ -500,7 +859,7 @@ class GitLabDashboardFlask {
             const response = await fetch(`${this.baseApiUrl}/groups/${subgroupId}/projects`);
             const result = await response.json();
 
-            if (response.ok) {
+            if (response.ok && result.success) {
                 contentElement.innerHTML = this.renderProjects(result.projects, 'Projects');
             } else {
                 contentElement.innerHTML = `<div class="alert alert-warning">Error: ${result.error}</div>`;
@@ -572,7 +931,7 @@ class GitLabDashboardFlask {
             const response = await fetch(`${this.baseApiUrl}/search/projects?q=${encodeURIComponent(searchTerm)}`);
             const result = await response.json();
 
-            if (response.ok) {
+            if (response.ok && result.success) {
                 if (result.projects && result.projects.length > 0) {
                     resultsContainer.innerHTML = `
                         <h6>Search Results (${result.count} found)</h6>
@@ -1050,7 +1409,7 @@ class GitLabDashboardFlask {
             const response = await fetch(`${this.baseApiUrl}/projects/${projectId}/pipelines/${pipelineId}`);
             const pipeline = await response.json();
 
-            if (response.ok) {
+            if (response.ok && pipeline.success) {
                 // Create and show modal with pipeline details
                 const modalHtml = `
                     <div class="modal fade" id="pipelineModal" tabindex="-1">
@@ -1153,32 +1512,13 @@ class GitLabDashboardFlask {
         }
     }
 
-    // Load statistics
-    async loadStats() {
-        try {
-            const response = await fetch(`${this.baseApiUrl}/dashboard/stats`);
-            const stats = await response.json();
-
-            if (response.ok) {
-                document.getElementById('totalGroups').textContent = stats.total_groups;
-                document.getElementById('totalSubgroups').textContent = stats.total_subgroups;
-                document.getElementById('totalProjects').textContent = stats.total_projects;
-                document.getElementById('lastUpdated').textContent = new Date(stats.last_updated).toLocaleTimeString();
-            } else {
-                console.error('Failed to load stats:', stats.error);
-            }
-        } catch (error) {
-            console.error('Error loading stats:', error);
-        }
-    }
-
     // Check API health
     async checkHealth() {
         try {
             const response = await fetch(`${this.baseApiUrl}/health`);
             const health = await response.json();
 
-            if (response.ok) {
+            if (response.ok && health.success) {
                 document.getElementById('backendStatus').textContent = health.status;
                 document.getElementById('backendStatus').className = 'badge bg-success';
                 document.getElementById('configStatus').textContent = health.configured ? 'Configured' : 'Not Set';
@@ -1186,10 +1526,10 @@ class GitLabDashboardFlask {
                 document.getElementById('lastHealthCheck').textContent = new Date().toLocaleTimeString();
                 this.isConfigured = health.configured;
                 
-                // If configured, automatically load dashboard data
-                if (health.configured) {
+                // If configured and dashboard not already loaded, load dashboard data
+                if (health.configured && !this.dashboardLoaded) {
                     await this.loadDashboard();
-                } else {
+                } else if (!health.configured) {
                     this.showWelcomeState();
                 }
             } else {
@@ -1202,6 +1542,30 @@ class GitLabDashboardFlask {
             document.getElementById('backendStatus').className = 'badge bg-danger';
             console.error('Health check failed:', error);
             this.showWelcomeState();
+        }
+    }
+
+    // Update health status indicators only (without triggering dashboard loading)
+    async updateHealthStatus() {
+        try {
+            const response = await fetch(`${this.baseApiUrl}/health`);
+            const health = await response.json();
+
+            if (response.ok && health.success) {
+                document.getElementById('backendStatus').textContent = health.status;
+                document.getElementById('backendStatus').className = 'badge bg-success';
+                document.getElementById('configStatus').textContent = health.configured ? 'Configured' : 'Not Set';
+                document.getElementById('configStatus').className = health.configured ? 'badge bg-success' : 'badge bg-warning';
+                document.getElementById('lastHealthCheck').textContent = new Date().toLocaleTimeString();
+                this.isConfigured = health.configured;
+            } else {
+                document.getElementById('backendStatus').textContent = 'Error';
+                document.getElementById('backendStatus').className = 'badge bg-danger';
+            }
+        } catch (error) {
+            document.getElementById('backendStatus').textContent = 'Offline';
+            document.getElementById('backendStatus').className = 'badge bg-danger';
+            console.error('Health status update failed:', error);
         }
     }
 
@@ -1227,7 +1591,7 @@ class GitLabDashboardFlask {
             const response = await fetch(`${this.baseApiUrl}/dashboard/stats`);
             const stats = await response.json();
 
-            if (response.ok) {
+            if (response.ok && stats.success) {
                 document.getElementById('totalGroups').textContent = stats.total_groups;
                 document.getElementById('totalSubgroups').textContent = stats.total_subgroups;
                 document.getElementById('totalProjects').textContent = stats.total_projects;
@@ -1351,7 +1715,7 @@ async function triggerFullSync() {
 
         const result = await response.json();
 
-        if (response.ok) {
+        if (response.ok && result.success) {
             alertDiv.innerHTML = `
                 <div class="alert alert-success alert-dismissible fade show" role="alert">
                     <i class="fas fa-check-circle"></i> Synchronization completed! 
@@ -1395,11 +1759,15 @@ async function triggerProjectSync(projectId) {
         
         if (response.ok) {
             const result = await response.json();
-            dashboard.showSuccess('Project data synchronized successfully!');
-            // Refresh the project details
-            setTimeout(() => {
-                dashboard.showProjectDetails(projectId);
-            }, 1000);
+            if (result.success) {
+                dashboard.showSuccess('Project data synchronized successfully!');
+                // Refresh the project details
+                setTimeout(() => {
+                    dashboard.showProjectDetails(projectId);
+                }, 1000);
+            } else {
+                dashboard.showError(`Sync failed: ${result.error}`);
+            }
         } else {
             const error = await response.json();
             dashboard.showError(`Sync failed: ${error.error}`);
@@ -1409,8 +1777,128 @@ async function triggerProjectSync(projectId) {
     }
 }
 
-// Initialize dashboard when page loads
-const dashboard = new GitLabDashboardFlask();
-document.addEventListener('DOMContentLoaded', () => {
-    dashboard.init();
-});
+// Get latest data from GitLab API using full sync
+async function getLatestDataFromAPI() {
+    const button = document.querySelector('button[onclick="getLatestDataFromAPI()"]');
+    const icon = button.querySelector('i');
+    const originalText = button.innerHTML;
+    
+    try {
+        // Update button to show loading
+        button.disabled = true;
+        button.innerHTML = '<i class="fas fa-sync fa-spin"></i> Fetching Latest Data...';
+        
+        // Show loading message
+        dashboard.showSuccess('Fetching latest data from GitLab API...');
+        
+        // Call the full sync endpoint
+        const response = await fetch('/api/sync/full', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        });
+        
+        if (response.ok) {
+            const result = await response.json();
+            
+            if (result.success) {
+                // Show success message
+                dashboard.showSuccess('Latest data fetched successfully! Refreshing dashboard...');
+                
+                // Reload the dashboard data
+                setTimeout(async () => {
+                    await dashboard.checkConfigurationAndLoad();
+                    dashboard.showSuccess('Dashboard updated with latest GitLab data!');
+                }, 1000);
+            } else {
+                dashboard.showError(`Failed to fetch latest data: ${result.error || 'Unknown error'}`);
+            }
+            
+        } else {
+            const error = await response.json();
+            dashboard.showError(`Failed to fetch latest data: ${error.error || 'Unknown error'}`);
+        }
+        
+    } catch (error) {
+        dashboard.showError(`Error fetching latest data: ${error.message}`);
+    } finally {
+        // Restore button
+        button.disabled = false;
+        button.innerHTML = originalText;
+    }
+}
+
+// Show configuration section for manual setup
+function showManualConfig() {
+    const configSection = document.getElementById('configSection');
+    const statusBanner = document.getElementById('configStatusBanner');
+    
+    if (configSection) {
+        configSection.style.display = 'block';
+        // Scroll to config section
+        configSection.scrollIntoView({ behavior: 'smooth' });
+    }
+    
+    // Update status banner to show manual config mode
+    if (statusBanner) {
+        statusBanner.innerHTML = `
+            <div class="alert alert-warning d-flex justify-content-between align-items-center">
+                <div>
+                    <i class="fas fa-cog"></i>
+                    <strong>Manual Configuration Mode</strong> - Configure GitLab connection below
+                </div>
+                <div>
+                    <button type="button" class="btn btn-outline-secondary btn-sm" onclick="hideConfigSection()">
+                        <i class="fas fa-times"></i> Cancel
+                    </button>
+                </div>
+            </div>
+        `;
+    }
+}
+
+// Copy setup command to clipboard
+function copySetupCommand() {
+    const setupCommand = './setup.sh';
+    
+    if (navigator.clipboard && window.isSecureContext) {
+        navigator.clipboard.writeText(setupCommand).then(() => {
+            dashboard.showSuccess('Setup command copied to clipboard!');
+        }).catch(() => {
+            dashboard.showError('Failed to copy to clipboard');
+        });
+    } else {
+        // Fallback for older browsers
+        const textArea = document.createElement('textarea');
+        textArea.value = setupCommand;
+        document.body.appendChild(textArea);
+        textArea.select();
+        try {
+            document.execCommand('copy');
+            dashboard.showSuccess('Setup command copied to clipboard!');
+        } catch (err) {
+            dashboard.showError('Failed to copy to clipboard');
+        }
+        document.body.removeChild(textArea);
+    }
+}
+
+// Show configuration section for reconfiguration
+function showConfigSection() {
+    showManualConfig();
+}
+
+// Hide configuration section and show status banner
+function hideConfigSection() {
+    const configSection = document.getElementById('configSection');
+    const statusBanner = document.getElementById('configStatusBanner');
+    
+    if (configSection) {
+        configSection.style.display = 'none';
+    }
+    
+    if (statusBanner) {
+        statusBanner.style.display = 'block';
+    }
+}

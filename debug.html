@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Debug Dashboard</title>
+    <script>
+        async function testAPIs() {
+            console.log('Testing APIs...');
+            
+            try {
+                // Test groups API
+                const groupsResponse = await fetch('/api/groups');
+                const groupsData = await groupsResponse.json();
+                console.log('Groups API response:', groupsData);
+                
+                // Test specific group projects API
+                const projectsResponse = await fetch('/api/groups/103590839/projects');
+                const projectsData = await projectsResponse.json();
+                console.log('Hero-Vired-Course projects API response:', projectsData);
+                
+                // Test subgroups API
+                const subgroupsResponse = await fetch('/api/groups/103590839/subgroups');
+                const subgroupsData = await subgroupsResponse.json();
+                console.log('Hero-Vired-Course subgroups API response:', subgroupsData);
+                
+            } catch (error) {
+                console.error('API test error:', error);
+            }
+        }
+        
+        window.onload = testAPIs;
+    </script>
+</head>
+<body>
+    <h1>Debug Page</h1>
+    <p>Check the browser console for API test results.</p>
+</body>
+</html>
